@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:note_x/pages/home.dart';
 
 void main(){
   runApp(const MyApp());
@@ -15,22 +16,35 @@ class MyApp extends StatelessWidget {
       home: Scaffold(
         appBar: AppBar(
           backgroundColor: Color(0xfffdfaf8),
-          title: Row(
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'note',
-                style: TextStyle(
-                  color: Colors.black87,
-                  fontSize: 30,
-                  fontWeight: FontWeight.bold
-                ),
+              Row(
+                children: [
+                  Text(
+                    'note',
+                    style: TextStyle(
+                        color: Colors.black87,
+                        fontSize: 30,
+                        fontWeight: FontWeight.bold
+                    ),
+                  ),
+                  Text(
+                    'X',
+                    style: TextStyle(
+                        color: Color(0xfff9c35e),
+                        fontSize: 33,
+                        fontWeight: FontWeight.bold
+                    ),
+                  )
+                ],
               ),
               Text(
-                'X',
+                'Vos pensées, organisées avec simplicité',
                 style: TextStyle(
-                  color: Color(0xfff9c35e),
-                  fontSize: 33,
-                  fontWeight: FontWeight.bold
+                  color: Colors.black45,
+                  fontSize: 12,
+                  fontWeight: FontWeight(500)
                 ),
               )
             ],
@@ -38,7 +52,7 @@ class MyApp extends StatelessWidget {
           actions: [
             Padding(
               padding: EdgeInsetsGeometry.only(
-                right: 20
+                right: 10
               ),
               child: Row(
                 children: [
@@ -60,16 +74,9 @@ class MyApp extends StatelessWidget {
         ),
         backgroundColor: Color(0xfffdfaf8),
         body: Center(
-          child: Text(
-            "noteX",
-            style: TextStyle(
-              color: Colors.yellow,
-              fontSize: 30,
-              fontWeight: FontWeight.bold,
-            ),
+          child: HomePage(),
           ),
         ),
-      ),
     );
   }
 }
