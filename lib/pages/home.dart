@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:note_x/models/note.dart';
+import 'package:note_x/pages/note.dart';
 
 class HomePage extends StatelessWidget {
   HomePage({super.key});
