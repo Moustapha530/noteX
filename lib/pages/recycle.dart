@@ -10,7 +10,7 @@ class RecyclePage extends StatelessWidget {
       title: 'Idées de projet',
       content: 'Une application de prise de notes minimaliste avec synchronisation cloud...',
       creationDate: DateTime(2024, 8, 10, 10, 28),
-      type: NoteType.idea,
+      type: NoteType.note,
       pinned: true,
       isFavorite: true,
     ),

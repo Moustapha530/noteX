@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-enum NoteType { idea, checklist, voice, meeting, quick, image }
+enum NoteType { checklist, voice, note, image }
 
 class NoteModel {
   final String title;
@@ -32,37 +32,27 @@ class NoteCard extends StatelessWidget {
 
   Color getBackgroundColor() {
     switch (note.type) {
-      case NoteType.idea:
+      case NoteType.note:
         return const Color(0xfffdf8ec);
       case NoteType.checklist:
         return const Color(0xfff2f8ec);
       case NoteType.voice:
         return const Color(0xffedf5f8);
-      case NoteType.meeting:
-        return const Color(0xfff8eded);
-      case NoteType.quick:
       case NoteType.image:
         return const Color(0xfff3edf8);
-      default:
-        return Colors.white;
     }
   }
 
   Color getAccentColor() {
     switch (note.type) {
-      case NoteType.idea:
+      case NoteType.note:
         return const Color(0xfff5b839);
       case NoteType.checklist:
         return const Color(0xff759b4a);
       case NoteType.voice:
         return const Color(0xff4894b5);
-      case NoteType.meeting:
-        return const Color(0xffd57a7a);
-      case NoteType.quick:
       case NoteType.image:
         return const Color(0xff8c7ad5);
-      default:
-        return Colors.black;
     }
   }
 
@@ -93,14 +83,29 @@ class NoteCard extends StatelessWidget {
     }
   }
 
+  String _getTypeName() {
+    switch (note.type) {
+      case NoteType.note:
+        return 'Notes';
+      case NoteType.checklist:
+        return 'Checklist';
+      case NoteType.voice:
+        return 'Vocal';
+      case NoteType.image:
+        return 'Image';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(12),
+
       decoration: BoxDecoration(
         color: getBackgroundColor(),
         borderRadius: BorderRadius.circular(16),
       ),
+
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -115,8 +120,9 @@ class NoteCard extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
               ),
+
               Icon(
-                note.pinned ? Icons.push_pin_outlined : Icons.more_vert,
+                note.pinned ? Icons.push_pin : Icons.more_vert,
                 size: 16,
                 color: Colors.black38,
               ),
@@ -125,6 +131,8 @@ class NoteCard extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             note.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: GoogleFonts.nunito(
               fontWeight: FontWeight.bold,
               fontSize: 15,
@@ -136,6 +144,22 @@ class NoteCard extends StatelessWidget {
             child: _buildContent(),
           ),
           const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: getAccentColor().withAlpha(25),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              _getTypeName(),
+              style: GoogleFonts.nunito(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: getAccentColor(),
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
