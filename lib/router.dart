@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:note_x/pages/home.dart';
 import 'package:note_x/pages/favorites.dart';
 import 'package:note_x/pages/trash.dart';
-import 'package:note_x/pages/settings.dart';
+import 'package:note_x/pages/settings/settings.dart';
 import 'package:note_x/pages/all_notes.dart';
 import 'package:note_x/pages/edit_note.dart';
 import 'package:note_x/pages/search.dart';
