@@ -1,7 +1,6 @@
 import 'dart:convert';
 
-enum NoteType { checklist, voice, note, image }
-
+enum NoteType { checklist, voice, note }
 
 String getPlainTextFromContent(String? rawContent) {
   if (rawContent == null || rawContent.isEmpty) return '';
@@ -40,10 +39,8 @@ class NoteModel {
   final String title;
   final String? content;
   final List<String>? checklist;
-  final String? imageUrl;
   final DateTime lastModified;
   final NoteType type;
-  bool pinned;
   bool isFavorite;
   bool isTrashed;
 
@@ -52,10 +49,8 @@ class NoteModel {
     required this.type,
     this.content,
     this.checklist,
-    this.imageUrl,
     DateTime? lastModified,
     this.title = 'Sans titre',
-    this.pinned = false,
     this.isFavorite = false,
     this.isTrashed = false,
   }) : lastModified = lastModified ?? DateTime.now();
@@ -67,9 +62,7 @@ class NoteModel {
       'type': type.toString(),
       'content': content,
       'checklist': checklist,
-      'imageUrl': imageUrl,
       'lastModified': lastModified.toIso8601String(),
-      'pinned': pinned,
       'isFavorite': isFavorite,
       'isTrashed': isTrashed,
     };
@@ -79,14 +72,14 @@ class NoteModel {
     return NoteModel(
       id: json['id'] as String,
       title: json['title'] as String,
-      type: NoteType.values.firstWhere((v) => v.toString() == json['type']),
+      type: json['type'] == 'NoteType.image'
+          ? NoteType.note
+          : NoteType.values.firstWhere((v) => v.toString() == json['type']),
       content: json['content'] as String?,
       checklist: (json['checklist'] as List<dynamic>?)
           ?.map((item) => item as String)
           .toList(),
-      imageUrl: json['imageUrl'] as String?,
       lastModified: DateTime.parse(json['lastModified'] as String),
-      pinned: json['pinned'] as bool? ?? false,
       isFavorite: json['isFavorite'] as bool? ?? false,
       isTrashed: json['isTrashed'] as bool? ?? false,
     );

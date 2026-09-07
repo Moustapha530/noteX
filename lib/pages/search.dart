@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:note_x/note/card.dart';
 import 'package:note_x/note/model.dart';
+import 'package:note_x/l10n.dart';
 
-class SearchNotePage extends StatefulWidget {
+class SearchNotePage extends ConsumerStatefulWidget {
   final List<NoteModel> notes;
 
   const SearchNotePage({
@@ -12,10 +14,10 @@ class SearchNotePage extends StatefulWidget {
   });
 
   @override
-  State<SearchNotePage> createState() => _SearchNotePageState();
+  ConsumerState<SearchNotePage> createState() => _SearchNotePageState();
 }
 
-class _SearchNotePageState extends State<SearchNotePage> {
+class _SearchNotePageState extends ConsumerState<SearchNotePage> {
   final TextEditingController _searchController = TextEditingController();
   List<NoteModel> _filteredNotes = [];
 
@@ -42,13 +44,16 @@ class _SearchNotePageState extends State<SearchNotePage> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n(ref);
+
     return Scaffold(
-      backgroundColor: const Color(0xfff5f3f1),
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: const Color(0xfff5f3f1),
+        backgroundColor: colorScheme.surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
         title: TextField(
@@ -56,13 +61,13 @@ class _SearchNotePageState extends State<SearchNotePage> {
           autofocus: true,
           onChanged: _onSearchChanged,
           style: GoogleFonts.nunito(
-            color: Colors.black87,
+            color: colorScheme.onSurface,
             fontSize: 18,
           ),
           decoration: InputDecoration(
-            hintText: 'Rechercher une note...',
+            hintText: l10n.translate('search_hint'),
             hintStyle: GoogleFonts.nunito(
-              color: Colors.black45,
+              color: colorScheme.onSurface.withAlpha(115),
               fontSize: 18,
             ),
             border: InputBorder.none,
@@ -71,7 +76,7 @@ class _SearchNotePageState extends State<SearchNotePage> {
         actions: [
           if (_searchController.text.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.clear, color: Colors.black87),
+              icon: Icon(Icons.clear, color: colorScheme.onSurface),
               onPressed: () {
                 _searchController.clear();
                 _onSearchChanged('');
@@ -85,10 +90,10 @@ class _SearchNotePageState extends State<SearchNotePage> {
           child: _filteredNotes.isEmpty
               ? Center(
                   child: Text(
-                    'Aucun résultat trouvé.',
+                    l10n.translate('no_results'),
                     style: GoogleFonts.nunito(
                       fontSize: 16,
-                      color: Colors.black54,
+                      color: colorScheme.onSurface.withAlpha(138),
                     ),
                   ),
                 )

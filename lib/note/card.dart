@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:note_x/note/model.dart';
 import 'package:note_x/note/repository.dart';
+import 'package:note_x/l10n.dart';
 
 class NoteCard extends ConsumerWidget {
   final NoteModel note;
@@ -17,16 +18,15 @@ class NoteCard extends ConsumerWidget {
     this.isInFavorites = false,
   });
 
-  Color getBackgroundColor() {
+  Color getBackgroundColor(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     switch (note.type) {
       case NoteType.note:
-        return const Color(0xfffdf8ec);
+        return isDark ? const Color(0xFF2D2A20) : const Color(0xfffdf8ec);
       case NoteType.checklist:
-        return const Color(0xfff2f8ec);
+        return isDark ? const Color(0xFF252D20) : const Color(0xfff2f8ec);
       case NoteType.voice:
-        return const Color(0xffedf5f8);
-      case NoteType.image:
-        return const Color(0xfff3edf8);
+        return isDark ? const Color(0xFF202A2D) : const Color(0xffedf5f8);
     }
   }
 
@@ -38,60 +38,46 @@ class NoteCard extends ConsumerWidget {
         return const Color(0xff759b4a);
       case NoteType.voice:
         return const Color(0xff4894b5);
-      case NoteType.image:
-        return const Color(0xff8c7ad5);
     }
   }
 
-  String formatDate(DateTime date) {
+  String formatDate(DateTime date, L10n l10n) {
     final now = DateTime.now();
     final difference = now.difference(date).inDays;
 
     if (difference == 0) {
       return "${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}";
     } else if (difference == 1) {
-      return "Hier";
+      return l10n.translate('yesterday');
     } else {
-      final months = [
-        'janv.',
-        'févr.',
-        'mars',
-        'avr.',
-        'mai',
-        'juin',
-        'juil.',
-        'août',
-        'sept.',
-        'oct.',
-        'nov.',
-        'déc.'
-      ];
+      final months = l10n.months;
       return "${date.day} ${months[date.month - 1]}";
     }
   }
 
-  String _getTypeName() {
+  String _getTypeName(L10n l10n) {
     switch (note.type) {
       case NoteType.note:
-        return 'Notes';
+        return l10n.translate('filter_notes');
       case NoteType.checklist:
-        return 'Checklist';
+        return l10n.translate('checklist');
       case NoteType.voice:
-        return 'Vocal';
-      case NoteType.image:
-        return 'Image';
+        return l10n.translate('voice_note');
     }
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n(ref);
+
     return InkWell(
       onTap: isInTrash ? null : () => context.push('/note/${note.id}/edit'),
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: getBackgroundColor(),
+          color: getBackgroundColor(context),
           borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
@@ -116,7 +102,7 @@ class NoteCard extends ConsumerWidget {
                       size: 18,
                       color: Colors.redAccent,
                     ),
-                    tooltip: 'Supprimer définitivement',
+                    tooltip: l10n.translate('delete'),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     visualDensity: VisualDensity.compact,
@@ -124,29 +110,14 @@ class NoteCard extends ConsumerWidget {
                 else
                   Row(
                     children: [
-                      if (!isInFavorites) ...[
-                        IconButton(
-                          onPressed: () => _togglePinned(ref),
-                          icon: Icon(
-                            note.pinned ? Icons.push_pin : Icons.push_pin_outlined,
-                            size: 16,
-                            color: note.pinned ? getAccentColor() : Colors.black38,
-                          ),
-                          tooltip: note.pinned ? 'Désépingler' : 'Épingler',
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        const SizedBox(width: 8),
-                      ],
                       IconButton(
                         onPressed: () => _moveToTrash(ref),
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.delete_outline,
                           size: 16,
-                          color: Colors.black38,
+                          color: colorScheme.onSurface.withAlpha(97),
                         ),
-                        tooltip: 'Déplacer vers la corbeille',
+                        tooltip: l10n.translate('delete'),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                         visualDensity: VisualDensity.compact,
@@ -163,13 +134,11 @@ class NoteCard extends ConsumerWidget {
               style: GoogleFonts.nunito(
                 fontWeight: FontWeight.bold,
                 fontSize: 15,
-                color: Colors.black87,
+                color: colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 6),
-            Expanded(
-              child: _buildContent(),
-            ),
+            Expanded(child: _buildContent(context)),
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -178,7 +147,7 @@ class NoteCard extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
-                _getTypeName(),
+                _getTypeName(l10n),
                 style: GoogleFonts.nunito(
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
@@ -191,10 +160,10 @@ class NoteCard extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  formatDate(note.lastModified),
+                  formatDate(note.lastModified, l10n),
                   style: GoogleFonts.nunito(
                     fontSize: 11,
-                    color: Colors.black45,
+                    color: colorScheme.onSurface.withAlpha(125),
                   ),
                 ),
                 if (isInTrash)
@@ -205,7 +174,7 @@ class NoteCard extends ConsumerWidget {
                       size: 18,
                       color: getAccentColor(),
                     ),
-                    tooltip: 'Restaurer la note',
+                    tooltip: 'Restaurer',
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     visualDensity: VisualDensity.compact,
@@ -216,11 +185,11 @@ class NoteCard extends ConsumerWidget {
                     icon: Icon(
                       note.isFavorite ? Icons.star : Icons.star_border,
                       size: 16,
-                      color: note.isFavorite ? getAccentColor() : Colors.black26,
+                      color: note.isFavorite
+                          ? getAccentColor()
+                          : colorScheme.onSurface.withAlpha(66),
                     ),
-                    tooltip: note.isFavorite
-                        ? 'Retirer des favoris'
-                        : 'Ajouter aux favoris',
+                    tooltip: l10n.translate('favorites'),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     visualDensity: VisualDensity.compact,
@@ -233,16 +202,10 @@ class NoteCard extends ConsumerWidget {
     );
   }
 
-  Future<void> _togglePinned(WidgetRef ref) async {
-    await ref.read(notesProvider.notifier).updateNote(
-          _copyWith(pinned: !note.pinned),
-        );
-  }
-
   Future<void> _toggleFavorite(WidgetRef ref) async {
-    await ref.read(notesProvider.notifier).updateNote(
-          _copyWith(isFavorite: !note.isFavorite),
-        );
+    await ref
+        .read(notesProvider.notifier)
+        .updateNote(_copyWith(isFavorite: !note.isFavorite));
   }
 
   Future<void> _moveToTrash(WidgetRef ref) async {
@@ -250,70 +213,62 @@ class NoteCard extends ConsumerWidget {
   }
 
   Future<void> _restoreNote(WidgetRef ref) async {
-    await ref.read(notesProvider.notifier).updateNote(
-          _copyWith(isTrashed: false),
-        );
+    await ref
+        .read(notesProvider.notifier)
+        .updateNote(_copyWith(isTrashed: false));
   }
 
   Future<void> _deletePermanently(WidgetRef ref) async {
     await ref.read(notesProvider.notifier).deleteNotePermanently(note.id);
   }
 
-  NoteModel _copyWith({bool? pinned, bool? isFavorite, bool? isTrashed}) {
+  NoteModel _copyWith({bool? isFavorite, bool? isTrashed}) {
     return NoteModel(
       id: note.id,
       title: note.title,
       content: note.content,
       checklist: note.checklist,
-      imageUrl: note.imageUrl,
       lastModified: note.lastModified,
       type: note.type,
-      pinned: pinned ?? note.pinned,
       isFavorite: isFavorite ?? note.isFavorite,
       isTrashed: isTrashed ?? note.isTrashed,
     );
   }
 
-  Widget _buildContent() {
-    if (note.imageUrl != null) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Image.network(
-          note.imageUrl!,
-          fit: BoxFit.cover,
-          width: double.infinity,
-          errorBuilder: (context, error, stackTrace) => Container(
-            color: Colors.black12,
-            child: const Icon(Icons.image, color: Colors.black26),
-          ),
-        ),
-      );
-    }
+  Widget _buildContent(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
 
     if (note.checklist != null) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: note.checklist!
             .take(4)
-            .map((item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 2),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.check_box_outline_blank,
-                          size: 12, color: Colors.black38),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          getPlainTextFromContent(item),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.nunito(
-                              fontSize: 12, color: Colors.black54),
+            .map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 2),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.check_box_outline_blank,
+                      size: 12,
+                      color: colorScheme.onSurface.withAlpha(97),
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        getPlainTextFromContent(item),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.nunito(
+                          fontSize: 12,
+                          color: colorScheme.onSurface.withAlpha(138),
                         ),
                       ),
-                    ],
-                  ),
-                ))
+                    ),
+                  ],
+                ),
+              ),
+            )
             .toList(),
       );
     }
@@ -324,7 +279,7 @@ class NoteCard extends ConsumerWidget {
       overflow: TextOverflow.ellipsis,
       style: GoogleFonts.nunito(
         fontSize: 12,
-        color: Colors.black54,
+        color: colorScheme.onSurface.withAlpha(138),
         height: 1.3,
       ),
     );

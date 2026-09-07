@@ -7,8 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:note_x/note/model.dart';
 import 'package:uuid/uuid.dart';
 
-final notesProvider =
-    AsyncNotifierProvider<NoteRepository, List<NoteModel>>(
+final notesProvider = AsyncNotifierProvider<NoteRepository, List<NoteModel>>(
   NoteRepository.new,
 );
 
@@ -54,9 +53,7 @@ class NoteRepository extends AsyncNotifier<List<NoteModel>> {
       final Map<String, dynamic> data = jsonDecode(jsonString);
       final List<dynamic> notesJson = data['notes'] ?? [];
 
-      return notesJson
-          .map((json) => NoteModel.fromJson(json))
-          .toList();
+      return notesJson.map((json) => NoteModel.fromJson(json)).toList();
     } catch (e) {
       throw Exception('Failed to load notes: $e');
     }
@@ -70,17 +67,13 @@ class NoteRepository extends AsyncNotifier<List<NoteModel>> {
       'notes': notes.map((note) => note.toJson()).toList(),
     };
 
-    final jsonString =
-        const JsonEncoder.withIndent('  ').convert(data);
+    final jsonString = const JsonEncoder.withIndent('  ').convert(data);
 
     await file.writeAsString(jsonString, flush: true);
   }
 
   NoteModel createNewNote(NoteType type) {
-    return NoteModel(
-      id: _uuid.v4(),
-      type: type,
-    );
+    return NoteModel(id: _uuid.v4(), type: type);
   }
 
   Future<void> addNote(NoteModel note) async {
@@ -128,10 +121,8 @@ class NoteRepository extends AsyncNotifier<List<NoteModel>> {
         title: currentNotes[index].title,
         content: currentNotes[index].content,
         checklist: currentNotes[index].checklist,
-        imageUrl: currentNotes[index].imageUrl,
         lastModified: DateTime.now(),
         type: currentNotes[index].type,
-        pinned: false, // Unpin when trashed
         isFavorite: currentNotes[index].isFavorite,
         isTrashed: true,
       );
@@ -150,10 +141,8 @@ class NoteRepository extends AsyncNotifier<List<NoteModel>> {
         title: currentNotes[index].title,
         content: currentNotes[index].content,
         checklist: currentNotes[index].checklist,
-        imageUrl: currentNotes[index].imageUrl,
         lastModified: DateTime.now(),
         type: currentNotes[index].type,
-        pinned: currentNotes[index].pinned,
         isFavorite: currentNotes[index].isFavorite,
         isTrashed: false,
       );

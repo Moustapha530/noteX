@@ -5,38 +5,32 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:note_x/note/model.dart';
 import 'package:note_x/note/card.dart';
 import 'package:note_x/note/repository.dart';
+import 'package:note_x/l10n.dart';
 
 class HomePage extends ConsumerWidget {
   HomePage({super.key});
 
-  final actions = [
+  final List<Map<String, dynamic>> _actions = [
     {
       'bg_color': const Color(0x17f5b839),
       'color': const Color(0xfff5b839),
-      'text': 'Nouvelle note',
+      'text_key': 'new_note',
       'icon': Icons.note_add_outlined,
-      'note_type': NoteType.note
+      'note_type': NoteType.note,
     },
     {
       'bg_color': const Color(0x17759b4a),
       'color': const Color(0xff759b4a),
-      'text': 'Checklist',
+      'text_key': 'checklist',
       'icon': Icons.check_box_outlined,
-      'note_type': NoteType.checklist
-    },
-    {
-      'bg_color': const Color(0x178c7ad5),
-      'color': const Color(0xff8c7ad5),
-      'text': 'Image note',
-      'icon': Icons.image_outlined,
-      'note_type': NoteType.image
+      'note_type': NoteType.checklist,
     },
     {
       'bg_color': const Color(0x174894b5),
       'color': const Color(0xff4894b5),
-      'text': 'Note vocal',
+      'text_key': 'voice_note',
       'icon': Icons.mic_outlined,
-      'note_type': NoteType.voice
+      'note_type': NoteType.voice,
     },
   ];
 
@@ -44,41 +38,47 @@ class HomePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final notesAsync = ref.watch(notesProvider);
     final repository = ref.read(notesProvider.notifier);
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = context.l10n(ref);
 
     return notesAsync.when(
       data: (notes) => Scaffold(
-        backgroundColor: const Color(0xfffdfaf8),
+        backgroundColor: colorScheme.surface,
         appBar: AppBar(
-          backgroundColor: const Color(0xfffdfaf8),
+          backgroundColor: colorScheme.surface,
           elevation: 0,
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                children: const [
+                children: [
                   Text(
-                    'note',
+                    l10n.translate('app_title'),
                     style: TextStyle(
-                        color: Colors.black87,
-                        fontSize: 30,
-                        fontWeight: FontWeight.bold),
+                      color: colorScheme.onSurface,
+                      fontSize: 30,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   Text(
                     'X',
-                    style: TextStyle(
-                        color: Color(0xfff9c35e),
-                        fontSize: 33,
-                        fontWeight: FontWeight.bold),
-                  )
+                    style: const TextStyle(
+                      color: Color(0xfff9c35e),
+                      fontSize: 33,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
               ),
               Text(
-                'Vos pensées, organisées avec simplicité',
+                l10n.translate('app_subtitle'),
                 style: GoogleFonts.nunito(
-                    color: Colors.black45,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500),
-              )
+                  color: colorScheme.onSurface.withAlpha(115),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ],
           ),
           actions: [
@@ -87,9 +87,15 @@ class HomePage extends ConsumerWidget {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.search_rounded, color: Colors.black87, size: 26),
+                    icon: Icon(
+                      Icons.search_rounded,
+                      color: colorScheme.onSurface,
+                      size: 26,
+                    ),
                     onPressed: () {
-                      final nonTrashedNotes = notes.where((n) => !n.isTrashed).toList();
+                      final nonTrashedNotes = notes
+                          .where((n) => !n.isTrashed)
+                          .toList();
                       context.push('/search', extra: nonTrashedNotes);
                     },
                   ),
@@ -97,16 +103,16 @@ class HomePage extends ConsumerWidget {
                   IconButton(
                     onPressed: () {
                       context.push('/settings');
-                    }, 
-                    icon: const Icon(
+                    },
+                    icon: Icon(
                       Icons.settings_outlined,
-                      color: Colors.black87,
+                      color: colorScheme.onSurface,
                       size: 26,
-                    )
-                  )
+                    ),
+                  ),
                 ],
               ),
-            )
+            ),
           ],
         ),
         body: Column(
@@ -114,38 +120,54 @@ class HomePage extends ConsumerWidget {
             SizedBox(
               height: 100,
               child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 scrollDirection: Axis.horizontal,
                 itemBuilder: (context, index) => InkWell(
                   onTap: () {
-                    NoteModel note = repository.createNewNote(actions[index]['note_type'] as NoteType);
+                    NoteModel note = repository.createNewNote(
+                      _actions[index]['note_type'] as NoteType,
+                    );
                     repository.addNote(note);
                     context.push('/note/${note.id}/edit');
                   },
                   borderRadius: BorderRadius.circular(12),
                   child: Container(
                     width: 110,
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
-                      color: actions[index]['bg_color'] as Color,
+                      color: isDark
+                          ? (_actions[index]['color'] as Color).withAlpha(40)
+                          : _actions[index]['bg_color'] as Color,
+                      border: isDark
+                          ? Border.all(
+                              color: (_actions[index]['color'] as Color)
+                                  .withAlpha(80),
+                            )
+                          : null,
                     ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          actions[index]['icon'] as IconData,
-                          color: actions[index]['color'] as Color,
+                          _actions[index]['icon'] as IconData,
+                          color: _actions[index]['color'] as Color,
                           size: 28,
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          actions[index]['text'] as String,
+                          l10n.translate(_actions[index]['text_key'] as String),
                           textAlign: TextAlign.center,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.nunito(
-                            color: Colors.black87,
+                            color: colorScheme.onSurface,
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
                           ),
@@ -155,7 +177,7 @@ class HomePage extends ConsumerWidget {
                   ),
                 ),
                 separatorBuilder: (context, index) => const SizedBox(width: 10),
-                itemCount: actions.length,
+                itemCount: _actions.length,
               ),
             ),
             Expanded(
@@ -168,16 +190,16 @@ class HomePage extends ConsumerWidget {
                       children: [
                         Row(
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.timer_outlined,
-                              color: Colors.black87,
+                              color: colorScheme.onSurface.withAlpha(200),
                               size: 16,
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              'Notes récentes',
+                              l10n.translate('recent_notes'),
                               style: GoogleFonts.nunito(
-                                color: Colors.black87,
+                                color: colorScheme.onSurface,
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -187,25 +209,25 @@ class HomePage extends ConsumerWidget {
                         IconButton(
                           onPressed: () {
                             context.push('/all_notes');
-                          }, 
+                          },
                           icon: Row(
                             children: [
                               Text(
-                                'Voir tout',
+                                l10n.translate('see_all'),
                                 style: GoogleFonts.nunito(
-                                  color: Colors.black87,
+                                  color: colorScheme.onSurface.withAlpha(150),
                                   fontSize: 12,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
-                              const Icon(
+                              Icon(
                                 Icons.arrow_forward_ios_outlined,
-                                color: Colors.black87,
+                                color: colorScheme.onSurface.withAlpha(150),
                                 size: 12,
                               ),
                             ],
-                          )
-                        )
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -218,25 +240,27 @@ class HomePage extends ConsumerWidget {
                         padding: const EdgeInsets.symmetric(vertical: 10),
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: 0.85,
-                        ),
+                              crossAxisCount: 2,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                              childAspectRatio: 0.85,
+                            ),
                         itemCount: notes.where((n) => !n.isTrashed).length,
                         itemBuilder: (context, index) {
-                          if (notes.where((n) => !n.isTrashed).isEmpty) {
+                          final activeNotes = notes
+                              .where((n) => !n.isTrashed)
+                              .toList();
+                          if (activeNotes.isEmpty) {
                             return Center(
                               child: Text(
-                                'Aucune note disponible.',
+                                l10n.translate('no_notes'),
                                 style: GoogleFonts.nunito(
                                   fontSize: 16,
-                                  color: Colors.black54,
+                                  color: colorScheme.onSurface.withAlpha(138),
                                 ),
                               ),
                             );
                           }
-                          final activeNotes = notes.where((n) => !n.isTrashed).toList();
                           return NoteCard(note: activeNotes[index]);
                         },
                       ),
@@ -252,6 +276,7 @@ class HomePage extends ConsumerWidget {
           onPressed: () {
             showModalBottomSheet(
               context: context,
+              backgroundColor: colorScheme.surface,
               shape: const RoundedRectangleBorder(
                 borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               ),
@@ -260,12 +285,22 @@ class HomePage extends ConsumerWidget {
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
-                    children: actions.map((action) {
+                    children: _actions.map((action) {
                       return ListTile(
-                        leading: Icon(action['icon'] as IconData, color: action['color'] as Color),
-                        title: Text(action['text'] as String),
+                        leading: Icon(
+                          action['icon'] as IconData,
+                          color: action['color'] as Color,
+                        ),
+                        title: Text(
+                          l10n.translate(action['text_key'] as String),
+                          style: GoogleFonts.nunito(
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
                         onTap: () {
-                          NoteModel note = repository.createNewNote(action['note_type'] as NoteType);
+                          NoteModel note = repository.createNewNote(
+                            action['note_type'] as NoteType,
+                          );
                           repository.addNote(note);
                           context.push('/note/${note.id}/edit');
                         },
@@ -282,16 +317,14 @@ class HomePage extends ConsumerWidget {
           ),
           child: const Icon(Icons.add, color: Colors.black87, size: 30),
         ),
-      ), 
+      ),
       error: (error, stackTrace) => Center(
         child: Text(
           'Erreur lors du chargement des notes : $error',
           style: const TextStyle(color: Colors.red),
         ),
       ),
-      loading: () => const Center(
-        child: CircularProgressIndicator(),
-      ),
+      loading: () => const Center(child: CircularProgressIndicator()),
     );
   }
 }
