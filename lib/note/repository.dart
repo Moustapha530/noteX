@@ -169,4 +169,27 @@ class NoteRepository extends AsyncNotifier<List<NoteModel>> {
       await file.delete();
     }
   }
+
+  Future<void> emptyTrash() async {
+    final currentNotes = await future;
+    final List<NoteModel> notes = [...currentNotes];
+
+    notes.removeWhere((note) => note.isTrashed);
+
+    state = AsyncData(notes);
+    await saveNotes(notes);
+  }
+
+  Future<void> restoreAll() async {
+    final currentNotes = await future;
+    final List<NoteModel> notes = [...currentNotes];
+
+    final updatedNotes = notes.asMap().entries.map((e) {
+      final note = e.value;
+      return note.copyWith(isTrashed: false);
+    },).toList();
+
+    state = AsyncData(updatedNotes);
+    await saveNotes(updatedNotes);
+  }
 }
