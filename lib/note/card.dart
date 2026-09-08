@@ -96,7 +96,7 @@ class NoteCard extends ConsumerWidget {
                 ),
                 if (isInTrash)
                   IconButton(
-                    onPressed: () => _deletePermanently(ref),
+                    onPressed: () => _deletePermanently(context, ref),
                     icon: const Icon(
                       Icons.delete_forever_outlined,
                       size: 18,
@@ -205,7 +205,7 @@ class NoteCard extends ConsumerWidget {
   Future<void> _toggleFavorite(WidgetRef ref) async {
     await ref
         .read(notesProvider.notifier)
-        .updateNote(_copyWith(isFavorite: !note.isFavorite));
+        .updateNote(note.copyWith(isFavorite: !note.isFavorite));
   }
 
   Future<void> _moveToTrash(WidgetRef ref) async {
@@ -215,24 +215,63 @@ class NoteCard extends ConsumerWidget {
   Future<void> _restoreNote(WidgetRef ref) async {
     await ref
         .read(notesProvider.notifier)
-        .updateNote(_copyWith(isTrashed: false));
+        .updateNote(note.copyWith(isTrashed: false));
   }
 
-  Future<void> _deletePermanently(WidgetRef ref) async {
-    await ref.read(notesProvider.notifier).deleteNotePermanently(note.id);
-  }
-
-  NoteModel _copyWith({bool? isFavorite, bool? isTrashed}) {
-    return NoteModel(
-      id: note.id,
-      title: note.title,
-      content: note.content,
-      checklist: note.checklist,
-      lastModified: note.lastModified,
-      type: note.type,
-      isFavorite: isFavorite ?? note.isFavorite,
-      isTrashed: isTrashed ?? note.isTrashed,
-    );
+  Future<void> _deletePermanently(BuildContext context, WidgetRef ref) async {
+    final l10n = ref.read(l10nProvider);
+    showDialog(
+      context: context, 
+      builder: (context) {
+        return AlertDialog(
+            title: Text(
+                      l10n.translate('empty_trash_q'),
+                      style: GoogleFonts.nunito(
+                        color: Theme.of(context).colorScheme.onSurface,
+                        fontSize: 23,
+                        fontWeight: FontWeight.bold
+                      ),
+                    ),
+                    content: Text(
+                      l10n.translate('empty_trash_desc'),
+                      style: GoogleFonts.nunito(
+                        color: Theme.of(context).colorScheme.onSurface,
+                        fontSize: 19,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () {
+                          ref.read(notesProvider.notifier).emptyTrash();
+                        }, 
+                        child: Text(
+                          l10n.translate('confirm'),
+                          style: GoogleFonts.nunito(
+                            color: Colors.red,
+                            fontSize: 19,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          context.pop();
+                        }, 
+                        child: Text(
+                          l10n.translate('cancel'),
+                          style: GoogleFonts.nunito(
+                            color: Theme.of(context).colorScheme.onSurface,
+                            fontSize: 19,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      )
+                    ],
+                  );
+                },
+              );
+                      
   }
 
   Widget _buildContent(BuildContext context) {
