@@ -84,4 +84,26 @@ class NoteModel {
       isTrashed: json['isTrashed'] as bool? ?? false,
     );
   }
+
+  NoteModel copyWith({
+    String? id,
+    String? title,
+    String? content,
+    List<String>? checklist,
+    DateTime? lastModified,
+    NoteType? type,
+    bool? isFavorite,
+    bool? isTrashed
+  }) {
+    return NoteModel(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      content: content ?? this.content,
+      checklist: checklist ?? this.checklist,
+      lastModified: lastModified ?? this.lastModified,
+      type: type ?? this.type,
+      isFavorite: isFavorite ?? this.isFavorite,
+      isTrashed: isTrashed ?? this.isTrashed,
+    );
+  }
 }
