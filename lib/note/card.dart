@@ -244,9 +244,10 @@ class NoteCard extends ConsumerWidget {
                       TextButton(
                         onPressed: () {
                           ref.read(notesProvider.notifier).emptyTrash();
+                          context.pop();
                         }, 
                         child: Text(
-                          l10n.translate('confirm'),
+                          l10n.translate('delete'),
                           style: GoogleFonts.nunito(
                             color: Colors.red,
                             fontSize: 19,
