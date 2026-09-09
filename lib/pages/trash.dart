@@ -12,6 +12,7 @@ class TrashPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final notesAsync = ref.watch(notesProvider);
+    final noteNotifier = ref.read(notesProvider.notifier);
     final colorScheme = Theme.of(context).colorScheme;
     final l10n = context.l10n(ref);
 
@@ -61,6 +62,77 @@ class TrashPage extends ConsumerWidget {
                         size: 28,
                       ),
                     ),
+                    SizedBox(width: 9,),
+                    IconButton(
+                      onPressed: () {
+                        showDialog(
+                          context: context, 
+                          builder: (context) {
+                            return AlertDialog(
+                              title: Text(
+                                l10n.translate('empty_trash_q'),
+                                style: GoogleFonts.nunito(
+                                  color: Theme.of(context).colorScheme.onSurface,
+                                  fontSize: 23,
+                                  fontWeight: FontWeight.bold
+                                ),
+                              ),
+                              content: Text(
+                                l10n.translate('empty_trash_desc'),
+                                style: GoogleFonts.nunito(
+                                  color: Theme.of(context).colorScheme.onSurface,
+                                  fontSize: 19,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () {
+                                    noteNotifier.emptyTrash();
+                                    context.pop();
+                                  }, 
+                                  child: Text(
+                                    l10n.translate('delete'),
+                                    style: GoogleFonts.nunito(
+                                      color: Colors.red,
+                                      fontSize: 19,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    context.pop();
+                                  }, 
+                                  child: Text(
+                                    l10n.translate('cancel'),
+                                    style: GoogleFonts.nunito(
+                                      color: Theme.of(context).colorScheme.onSurface,
+                                      fontSize: 19,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                )
+                              ],
+                            );
+                          },
+                        );
+                      }, 
+                      icon: Icon(
+                        Icons.delete_forever_outlined,
+                        color: colorScheme.onSurface,
+                        size: 28,
+                      ),
+                    ),
+                    SizedBox(width: 9,),
+                    IconButton(
+                      onPressed: () => noteNotifier.restoreAll(), 
+                      icon: Icon(
+                        Icons.restore_from_trash_outlined,
+                        color: colorScheme.onSurface,
+                        size: 28,
+                      ),
+                    )
                   ],
                 ),
               ),
