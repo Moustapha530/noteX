@@ -302,6 +302,7 @@ class HomePage extends ConsumerWidget {
                             action['note_type'] as NoteType,
                           );
                           repository.addNote(note);
+                          context.pop();
                           context.push('/note/${note.id}/edit');
                         },
                       );
