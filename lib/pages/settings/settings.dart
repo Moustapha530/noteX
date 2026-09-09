@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:note_x/note/repository.dart';
 import 'package:note_x/pages/settings/model.dart';
@@ -132,7 +133,7 @@ class SettingsPage extends ConsumerWidget {
                 icon: Icons.text_fields_outlined,
                 iconColor: const Color(0xff4894b5),
                 title: l10n.translate('text_size'),
-                subtitle: l10n.translate('normal'),
+                subtitle: '${settings.fontSize.ceil()} px',
                 onTap: () => _showFontSizeSlider(context, settings, settingsNotifier, l10n),
               ),
             ],
@@ -804,39 +805,72 @@ class SettingsPage extends ConsumerWidget {
     L10n l10n
     ) {
     final colorScheme = Theme.of(context).colorScheme;
+    double fontSize = 18;
 
     showModalBottomSheet(
       context: context,
       backgroundColor: colorScheme.surface,
+      showDragHandle: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
       ),
-      builder: (context) {
-        return Column(
-          children: [
-            Text(
-              l10n.translate('font_size'),
-              style: GoogleFonts.nunito(
-                color: colorScheme.onSurface,
-                fontSize: 17
+      builder: (builderContext) {
+        return StatefulBuilder(
+          builder: (stateFullContext, setState) {
+            return Padding(
+              padding: EdgeInsetsGeometry.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.translate('text_size'),
+                    style: GoogleFonts.nunito(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 13,),
+                  Center(
+                    child: Text(
+                      l10n.translate('preview'),
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.nunito(
+                        fontSize: fontSize,
+                      ),
+                    ),
+                  ),
+                  Slider(
+                    min: 16,
+                    max: 25,
+                    value: fontSize, 
+                    onChanged: (value) {
+                      setState(() {
+                        fontSize = value;
+                      });
+                    }
+                  ),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () {
+                        notifier.updateFontSize(fontSize);
+                        context.pop();
+                      }, 
+                      child: Text(
+                        l10n.translate('apply'),
+                        style: GoogleFonts.nunito(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold
+                        ),
+                      )
+                    ),
+                  ),
+                  SizedBox(height: 8,)
+                ],
               ),
-            ),
-            Text(
-              l10n.translate('preview'),
-              style: GoogleFonts.nunito(
-                color: colorScheme.onSurface,
-                fontSize: settings.fontSize,
-              ),
-            ),
-            Slider(
-              value: 18, 
-              onChanged: (value) {
-                notifier.updateFontSize(value);
-              },
-              max: 23,
-              min: 16,
-            )
-          ],
+            );
+          },
         );
       },
     );

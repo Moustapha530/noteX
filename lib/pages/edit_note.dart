@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:note_x/note/model.dart';
 import 'package:note_x/note/repository.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:note_x/pages/settings/provider.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:note_x/l10n.dart';
 
@@ -316,18 +317,25 @@ class _EditNotePageState extends ConsumerState<EditNotePage> {
         title: Text(l10n.translate('save_changes')),
         content: Text(l10n.translate('save_changes_desc')),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, 'cancel'),
-            child: Text(l10n.translate('cancel')),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, 'discard'),
-            child: Text(l10n.translate('discard')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, 'save'),
-            child: Text(l10n.translate('save')),
-          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, 'cancel'),
+                child: Text(l10n.translate('cancel')),
+              ),
+              SizedBox(width: 3,),
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, 'discard'),
+                child: Text(l10n.translate('discard')),
+              ),
+              SizedBox(width: 3,),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, 'save'),
+                child: Text(l10n.translate('save')),
+              ),
+            ],
+          )
         ],
       ),
     );
@@ -611,6 +619,7 @@ class _EditNotePageState extends ConsumerState<EditNotePage> {
     final textColor = colorScheme.onSurface;
     final secondaryTextColor = textColor.withAlpha(153);
     final l10n = context.l10n(ref);
+    final settings = ref.watch(settingsProvider);
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -704,7 +713,7 @@ class _EditNotePageState extends ConsumerState<EditNotePage> {
                 customStyles: quill.DefaultStyles(
                   paragraph: quill.DefaultTextBlockStyle(
                     GoogleFonts.nunito(
-                      fontSize: 17,
+                      fontSize: settings.fontSize,
                       color: textColor,
                       height: 1.45,
                     ),
