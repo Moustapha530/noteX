@@ -96,6 +96,9 @@ class L10n {
       'light': 'Light',
       'note_empty': 'Note is empty!',
       'confirm' : 'Confirm',
+      'read' : 'Read aloud',
+      'preview' : 'Preview',
+      'apply' : 'Apply',  
     },
     'fr': {
       'app_title': 'note',
@@ -185,7 +188,11 @@ class L10n {
       'system' : 'Système',
       'dark': 'Sombre',
       'light': 'Clair',
-      'note_empty': 'La note est vide'
+      'note_empty': 'La note est vide',
+      'confirm': 'Confirmer',
+      'read' : 'Lire à haute voix',
+      'preview': 'Aperçu',
+      'apply': 'Appliquer',
     },
     'es': {
       'app_title': 'note',
@@ -274,7 +281,11 @@ class L10n {
       'privacy_subtitle': 'Cómo usa noteX tus datos',
       'system': 'Sistema',
       'dark': 'Oscuro',
-      'light': 'Claro'
+      'light': 'Claro',
+      'confirm': 'Confirmar',
+      'read': 'Leer en voz alta',
+      'preview': 'Vista previa',
+      'apply': 'Aplicar',
     },
     'pt': {
       'app_title': 'note',
@@ -362,7 +373,12 @@ class L10n {
       'privacy_subtitle': 'Como o noteX usa seus dados',
       'system': 'Sistema',
       'dark': 'Escuro',
-      'light': 'Claro'
+      'light': 'Claro',
+      'note_empty': 'A nota está vazia',
+      'confirm': 'Confirmar',
+      'read': 'Ler em voz alta',
+      'preview': 'Visualização',
+      'apply': 'Aplicar',
     },
     'ru': {
       'app_title': 'note',
@@ -449,7 +465,12 @@ class L10n {
       'privacy_subtitle': 'Как noteX использует ваши данные',
       'system': 'Система',
       'dark': 'Тёмная',
-      'light': 'Светлая'
+      'light': 'Светлая',
+      'note_empty': 'Заметка пуста',
+      'confirm': 'Подтвердить',
+      'read': 'Читать вслух',
+      'preview': 'Предпросмотр',
+      'apply': 'Применить',
     },
     'zh': {
       'app_title': 'note',
@@ -536,7 +557,12 @@ class L10n {
       'privacy_subtitle': 'noteX 如何使用你的数据',
       'system': '系统',
       'dark': '深色',
-      'light': '浅色'
+      'light': '浅色',
+      'note_empty': '笔记为空！',
+      'confirm': '确认',
+      'read': '朗读',
+      'preview': '预览',
+      'apply': '应用',
     },
     'de': {
       'app_title': 'note',
@@ -626,6 +652,9 @@ class L10n {
       'light': 'Hell',
       'note_empty': 'Die Notiz ist leer!',
       'confirm': 'Bestätigen',
+      'read': 'Vorlesen',
+      'preview': 'Vorschau',
+      'apply': 'Anwenden',
     },
     'it': {
       'app_title': 'note',
@@ -715,6 +744,9 @@ class L10n {
       'light': 'Chiaro',
       'note_empty': 'La nota è vuota!',
       'confirm': 'Conferma',
+      'read': 'Leggi ad alta voce',
+      'preview': 'Anteprima',
+      'apply': 'Applica',
     },
   };
   
