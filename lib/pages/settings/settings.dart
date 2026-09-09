@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:note_x/note/repository.dart';
 import 'package:note_x/pages/settings/model.dart';
 import 'package:note_x/pages/settings/provider.dart';
 import 'package:note_x/l10n.dart';
@@ -19,6 +20,7 @@ class SettingsPage extends ConsumerWidget {
     final Color primaryColor = colorScheme.primary;
     final Color textColor = colorScheme.onSurface;
     final Color secondaryTextColor = colorScheme.onSurface.withAlpha(153);
+
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -41,13 +43,6 @@ class SettingsPage extends ConsumerWidget {
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            onPressed: () => _showSearchMessage(context),
-            icon: Icon(Icons.search_outlined, color: textColor, size: 26),
-          ),
-          const SizedBox(width: 8),
-        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 30),
@@ -85,19 +80,7 @@ class SettingsPage extends ConsumerWidget {
                 onTap: () =>
                     _showThemeDialog(context, settings, settingsNotifier, l10n),
               ),
-            ],
-          ),
-          const SizedBox(height: 25),
-          _buildHeader(
-            l10n.translate('notes'),
-            l10n.translate('notes_management'),
-            textColor,
-            secondaryTextColor,
-          ),
-          const SizedBox(height: 10),
-          _buildSettingsCard(
-            context,
-            children: [
+              _buildDivider(context),
               _buildSwitchTile(
                 context,
                 icon: Icons.cloud_outlined,
@@ -112,30 +95,6 @@ class SettingsPage extends ConsumerWidget {
               _buildDivider(context),
               _buildSwitchTile(
                 context,
-                icon: Icons.save_outlined,
-                iconColor: const Color(0xff759b4a),
-                title: l10n.translate('auto_save'),
-                subtitle: settings.autoSaveEnabled
-                    ? l10n.translate('enabled')
-                    : l10n.translate('disabled'),
-                value: settings.autoSaveEnabled,
-                onChanged: (value) => settingsNotifier.toggleAutoSave(value),
-              ),
-            ],
-          ),
-          const SizedBox(height: 25),
-          _buildHeader(
-            l10n.translate('notifications'),
-            l10n.translate('notification_settings'),
-            textColor,
-            secondaryTextColor,
-          ),
-          const SizedBox(height: 10),
-          _buildSettingsCard(
-            context,
-            children: [
-              _buildSwitchTile(
-                context,
                 icon: Icons.notifications_none_outlined,
                 iconColor: const Color(0xffd57a7a),
                 title: l10n.translate('notifications'),
@@ -145,16 +104,6 @@ class SettingsPage extends ConsumerWidget {
                 value: settings.notificationsEnabled,
                 onChanged: (value) =>
                     settingsNotifier.toggleNotifications(value),
-              ),
-              _buildDivider(context),
-              _buildNavigationTile(
-                context,
-                icon: Icons.alarm_outlined,
-                iconColor: const Color(0xfff5b839),
-                title: l10n.translate('reminders'),
-                subtitle: l10n.translate('reminder_subtitle'),
-                onTap: () =>
-                    _showComingSoon(context, l10n.translate('reminders')),
               ),
             ],
           ),
@@ -184,8 +133,7 @@ class SettingsPage extends ConsumerWidget {
                 iconColor: const Color(0xff4894b5),
                 title: l10n.translate('text_size'),
                 subtitle: l10n.translate('normal'),
-                onTap: () =>
-                    _showComingSoon(context, l10n.translate('text_size')),
+                onTap: () => _showFontSizeSlider(context, settings, settingsNotifier, l10n),
               ),
             ],
           ),
@@ -215,7 +163,7 @@ class SettingsPage extends ConsumerWidget {
                 iconColor: const Color(0xffd57a7a),
                 title: l10n.translate('trash'),
                 subtitle: l10n.translate('permanently_delete_notes'),
-                onTap: () => _showEmptyTrashDialog(context, l10n),
+                onTap: () => _showEmptyTrashDialog(context, l10n, ref),
               ),
             ],
           ),
@@ -245,7 +193,7 @@ class SettingsPage extends ConsumerWidget {
                 iconColor: const Color(0xfff5b839),
                 title: l10n.translate('help'),
                 subtitle: l10n.translate('questions_information'),
-                onTap: () => _showComingSoon(context, l10n.translate('help')),
+                onTap: () {},
               ),
               _buildDivider(context),
               _buildNavigationTile(
@@ -254,8 +202,7 @@ class SettingsPage extends ConsumerWidget {
                 iconColor: const Color(0xff8c7ad5),
                 title: l10n.translate('privacy'),
                 subtitle: l10n.translate('privacy_subtitle'),
-                onTap: () =>
-                    _showComingSoon(context, l10n.translate('privacy')),
+                onTap: () {},
               ),
             ],
           ),
@@ -606,42 +553,44 @@ class SettingsPage extends ConsumerWidget {
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 15),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: GoogleFonts.nunito(
-                fontSize: 21,
-                fontWeight: FontWeight.w800,
-                color: textColor,
-              ),
-            ),
-            const SizedBox(height: 12),
-            ...choices.map((choice) {
-              final selected = choice == selectedValue;
-              return ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                title: Text(
-                  choice,
-                  style: GoogleFonts.nunito(
-                    fontSize: 15,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                    color: textColor,
-                  ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: GoogleFonts.nunito(
+                  fontSize: 21,
+                  fontWeight: FontWeight.w800,
+                  color: textColor,
                 ),
-                trailing: selected
-                    ? Icon(Icons.check_circle, color: colorScheme.primary)
-                    : Icon(
-                        Icons.radio_button_unchecked,
-                        color: textColor.withAlpha(66),
-                      ),
-                onTap: () => onSelected(choice),
-              );
-            }),
-          ],
-        ),
+              ),
+              const SizedBox(height: 12),
+              ...choices.map((choice) {
+                final selected = choice == selectedValue;
+                return ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                  title: Text(
+                    choice,
+                    style: GoogleFonts.nunito(
+                      fontSize: 15,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                      color: textColor,
+                    ),
+                  ),
+                  trailing: selected
+                      ? Icon(Icons.check_circle, color: colorScheme.primary)
+                      : Icon(
+                          Icons.radio_button_unchecked,
+                          color: textColor.withAlpha(66),
+                        ),
+                  onTap: () => onSelected(choice),
+                );
+              }),
+            ],
+          ),
+        )
       ),
     );
   }
@@ -770,7 +719,7 @@ class SettingsPage extends ConsumerWidget {
     );
   }
 
-  void _showEmptyTrashDialog(BuildContext context, L10n l10n) {
+  void _showEmptyTrashDialog(BuildContext context, L10n l10n, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final textColor = colorScheme.onSurface;
 
@@ -800,10 +749,13 @@ class SettingsPage extends ConsumerWidget {
             ),
             TextButton(
               onPressed: () {
+                final notes = ref.read(notesProvider.notifier) ;
+                notes.emptyTrash();
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text(l10n.translate('trash_emptied'))),
                 );
+                
               },
               child: Text(
                 l10n.translate('delete'),
@@ -845,78 +797,46 @@ class SettingsPage extends ConsumerWidget {
     );
   }
 
-  void _showSearchMessage(BuildContext context) {
-    showSearch(context: context, delegate: SettingsSearchDelegate());
-  }
+  void _showFontSizeSlider(
+    BuildContext context, 
+    SettingsState settings,
+    SettingsNotifier notifier,
+    L10n l10n
+    ) {
+    final colorScheme = Theme.of(context).colorScheme;
 
-  void _showComingSoon(BuildContext context, String feature) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$feature sera disponible prochainement.'),
-        behavior: SnackBarBehavior.floating,
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
       ),
-    );
-  }
-}
-
-class SettingsSearchDelegate extends SearchDelegate<String> {
-  final settings = [
-    'Langue',
-    'Thème',
-    'Synchronisation des notes',
-    'Enregistrement automatique',
-    'Notifications',
-    'Rappels',
-    'Couleur des notes',
-    'Taille du texte',
-    'Stockage',
-    'Vider la corbeille',
-    'À propos de noteX',
-    'Aide',
-    'Confidentialité',
-  ];
-
-  @override
-  List<Widget>? buildActions(BuildContext context) {
-    return [
-      if (query.isNotEmpty)
-        IconButton(onPressed: () => query = '', icon: const Icon(Icons.clear)),
-    ];
-  }
-
-  @override
-  Widget? buildLeading(BuildContext context) {
-    return IconButton(
-      onPressed: () => close(context, ''),
-      icon: const Icon(Icons.arrow_back),
-    );
-  }
-
-  @override
-  Widget buildResults(BuildContext context) {
-    return _buildResults(context);
-  }
-
-  @override
-  Widget buildSuggestions(BuildContext context) {
-    return _buildResults(context);
-  }
-
-  Widget _buildResults(BuildContext context) {
-    final results = settings
-        .where((setting) => setting.toLowerCase().contains(query.toLowerCase()))
-        .toList();
-
-    return ListView.builder(
-      itemCount: results.length,
-      itemBuilder: (context, index) {
-        return ListTile(
-          leading: const Icon(Icons.settings_outlined),
-          title: Text(
-            results[index],
-            style: GoogleFonts.nunito(fontWeight: FontWeight.w600),
-          ),
-          onTap: () => close(context, results[index]),
+      builder: (context) {
+        return Column(
+          children: [
+            Text(
+              l10n.translate('font_size'),
+              style: GoogleFonts.nunito(
+                color: colorScheme.onSurface,
+                fontSize: 17
+              ),
+            ),
+            Text(
+              l10n.translate('preview'),
+              style: GoogleFonts.nunito(
+                color: colorScheme.onSurface,
+                fontSize: settings.fontSize,
+              ),
+            ),
+            Slider(
+              value: 18, 
+              onChanged: (value) {
+                notifier.updateFontSize(value);
+              },
+              max: 23,
+              min: 16,
+            )
+          ],
         );
       },
     );

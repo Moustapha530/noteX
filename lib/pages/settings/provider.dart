@@ -30,6 +30,12 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     state = state.copyWith(selectedTheme: theme);
   }
 
+  Future<void> updateFontSize(double fontSize) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('fontSize', fontSize);
+    state = state.copyWith(fontSize: fontSize);
+  }
+
   Future<void> toggleSync(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('syncEnabled', enabled);

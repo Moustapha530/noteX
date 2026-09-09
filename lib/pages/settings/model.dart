@@ -5,6 +5,7 @@ class SettingsState {
   final bool syncEnabled;
   final bool notificationsEnabled;
   final bool autoSaveEnabled;
+  double fontSize;
 
   SettingsState({
     this.selectedLanguage = 'system',
@@ -12,6 +13,7 @@ class SettingsState {
     this.syncEnabled = true,
     this.notificationsEnabled = true,
     this.autoSaveEnabled = true,
+    this.fontSize = 17,
   });
 
   SettingsState copyWith({
@@ -20,6 +22,7 @@ class SettingsState {
     bool? syncEnabled,
     bool? notificationsEnabled,
     bool? autoSaveEnabled,
+    double? fontSize,
   }) {
     return SettingsState(
       selectedLanguage: selectedLanguage ?? this.selectedLanguage,
@@ -27,6 +30,7 @@ class SettingsState {
       syncEnabled: syncEnabled ?? this.syncEnabled,
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
       autoSaveEnabled: autoSaveEnabled ?? this.autoSaveEnabled,
+      fontSize: fontSize ?? this.fontSize,
     );
   }
 }
