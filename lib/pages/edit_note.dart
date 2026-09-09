@@ -1,19 +1,21 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:note_x/note/model.dart';
 import 'package:note_x/note/repository.dart';
+import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:note_x/l10n.dart';
 
 class EditNotePage extends ConsumerStatefulWidget {
   final String noteId;
 
-  const EditNotePage({
-    super.key,
-    required this.noteId,
-  });
+  const EditNotePage({super.key, required this.noteId});
 
   @override
   ConsumerState<EditNotePage> createState() => _EditNotePageState();
@@ -24,33 +26,37 @@ class _EditNotePageState extends ConsumerState<EditNotePage> {
   late final quill.QuillController _quillController;
   NoteModel? _note;
 
-  late bool _isFavorite;
-  late bool _isPinned;
+  bool _isNewNote = false;
+  bool _isFavorite = false;
   late String _id;
+  late NoteType _selectedType;
+
+  String _savedSnapshot = '';
+  Timer? _autosaveTimer;
+  bool _isLeaving = false;
+  bool _isSummarizing = false;
+
+  late stt.SpeechToText _speech;
+  bool _isListening = false;
 
   final FocusNode _editorFocusNode = FocusNode();
-
-  static const Color primaryColor = Color(0xFFFFB72B);
-  static const Color backgroundColor = Color(0xFFFFFCF7);
-  static const Color textColor = Color(0xFF252525);
-  static const Color secondaryTextColor = Color(0xFF747474);
 
   @override
   void initState() {
     super.initState();
-    // Initialize after the first frame so ref is fully available
+    _speech = stt.SpeechToText();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeNote();
     });
   }
 
   Future<void> _initializeNote() async {
-    // Access the repository notifier correctly via Riverpod
     final repository = ref.read(notesProvider.notifier);
-    
+
     var note = await repository.getNoteById(widget.noteId);
     if (note == null) {
-      final newNote = repository.createNewNote(NoteType.note);
+      _isNewNote = true;
+      final newNote = NoteModel(id: widget.noteId, type: NoteType.note);
       await repository.addNote(newNote);
       note = newNote;
     }
@@ -60,14 +66,16 @@ class _EditNotePageState extends ConsumerState<EditNotePage> {
     _note = note;
     _titleController = TextEditingController(text: note.title);
     _isFavorite = note.isFavorite;
-    _isPinned = note.pinned;
     _id = note.id;
+    _selectedType = note.type;
 
     _quillController = quill.QuillController(
       document: _createDocument(note.content),
       selection: const TextSelection.collapsed(offset: 0),
     );
-
+    _savedSnapshot = _currentSnapshot();
+    _titleController.addListener(_scheduleAutosave);
+    _quillController.addListener(_scheduleAutosave);
     setState(() {});
   }
 
@@ -86,238 +94,573 @@ class _EditNotePageState extends ConsumerState<EditNotePage> {
     return quill.Document()..insert(0, content);
   }
 
-  void _saveNote() {
-    if (_note == null) return;
+  String _currentSnapshot() {
+    return jsonEncode({
+      'title': _titleController.text.trim(),
+      'content': _quillController.document.toDelta().toJson(),
+      'isFavorite': _isFavorite,
+      'type': _selectedType.name,
+    });
+  }
+
+  bool get _hasUnsavedChanges => _currentSnapshot() != _savedSnapshot;
+
+  void _scheduleAutosave() {
+    if (!mounted || _note == null) return;
+
+    _autosaveTimer?.cancel();
+    _autosaveTimer = Timer(const Duration(milliseconds: 700), () {
+      _saveNote();
+    });
+  }
+
+  Future<bool> _saveNote({bool showSnackBar = false}) async {
+    if (_note == null) return false;
 
     final title = _titleController.text.trim();
+    final l10n = context.l10n(ref);
 
     if (title.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez donner un titre à votre note.'),
-        ),
-      );
-      return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.translate('title_hint'))));
+      return false;
     }
 
-    final deltaJson = jsonEncode(
-      _quillController.document.toDelta().toJson(),
-    );
+    final deltaJson = jsonEncode(_quillController.document.toDelta().toJson());
 
     final updatedNote = NoteModel(
       id: _id,
       title: title,
       content: deltaJson,
       checklist: _note!.checklist,
-      imageUrl: _note!.imageUrl,
       lastModified: DateTime.now(),
-      type: _note!.type,
-      pinned: _isPinned,
+      type: _selectedType,
       isFavorite: _isFavorite,
     );
 
-    // Call update through Riverpod notifier
-    ref.read(notesProvider.notifier).updateNote(updatedNote);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Note "${updatedNote.title}" enregistrée.',
-          style: GoogleFonts.nunito(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    await ref.read(notesProvider.notifier).updateNote(updatedNote);
+    _savedSnapshot = _currentSnapshot();
+    _note = updatedNote;
+
+    if (showSnackBar && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n
+                .translate('note_saved')
+                .replaceAll('{title}', updatedNote.title),
+            style: GoogleFonts.nunito(
+              color: isDark ? Colors.black87 : Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
           ),
+          duration: const Duration(seconds: 3),
         ),
-        duration: Duration(seconds: 3), // How long it stays visible
-      ),
+      );
+    }
+    return true;
+  }
+
+  Future<void> _summarizeNote() async {
+    final l10n = context.l10n(ref);
+    final text = _quillController.document.toPlainText().trim();
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(
+        content: Text(
+          l10n.translate('note_empty')
+          )
+        )
+      );
+      return;
+    }
+
+    setState(() => _isSummarizing = true);
+
+    try {
+      final apiKey = dotenv.get('GEMINI_API_KEY');
+      final model = GenerativeModel(model: 'gemini-2.5-flash-lite', apiKey: apiKey);
+
+      final prompt =
+          'Can you summarize precisely that :\n\n$text';
+      final response = await model.generateContent([Content.text(prompt)]);
+
+      if (response.text != null && mounted) {
+        _showSummaryDialog(response.text!);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error summarizing : $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSummarizing = false);
+      }
+    }
+  }
+
+  void _showSummaryDialog(String summary) {
+    if (!mounted) return;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textColor = colorScheme.onSurface;
+    final l10n = context.l10n(ref);
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: colorScheme.surface,
+          title: Text(
+            l10n.translate('summary_title'),
+            style: GoogleFonts.nunito(
+              fontWeight: FontWeight.w800,
+              color: textColor,
+            ),
+          ),
+          content: SingleChildScrollView(
+            child: Text(summary, style: GoogleFonts.nunito(color: textColor)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(l10n.translate('close')),
+            ),
+            TextButton(
+              onPressed: () {
+                final index = _quillController.selection.baseOffset;
+                final position = index >= 0
+                    ? index
+                    : _quillController.document.length;
+                _quillController.document.insert(
+                  position,
+                  '\n\n--- ${l10n.translate('summary_title')} ---\n$summary\n\n',
+                );
+                Navigator.pop(context);
+              },
+              child: Text(l10n.translate('insert_in_note')),
+            ),
+          ],
+        );
+      },
     );
   }
 
-  void _cancel() {
-    context.pop();
+  void _toggleDictation() async {
+    if (!_isListening) {
+      bool available = await _speech.initialize(
+        onError: (errorNotification) => ScaffoldMessenger.of(context,)
+                                        .showSnackBar(
+                                          SnackBar(
+                                            content: Text('Error summarizing : $errorNotification')
+                                          )
+                                        ),
+      );
+      if (available) {
+        setState(() => _isListening = true);
+        _speech.listen(
+          onResult: (val) {
+            if (val.finalResult) {
+              final index = _quillController.selection.baseOffset;
+              final position = index >= 0
+                  ? index
+                  : _quillController.document.length;
+
+              _quillController.document.insert(
+                position,
+                '${val.recognizedWords} ',
+              );
+              _quillController.updateSelection(
+                TextSelection.collapsed(
+                  offset: position + val.recognizedWords.length + 1,
+                ),
+                quill.ChangeSource.local,
+              );
+
+              setState(() => _isListening = false);
+            }
+          },
+        );
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Speech recognition unavailable.')),
+          );
+        }
+      }
+    } else {
+      setState(() => _isListening = false);
+      _speech.stop();
+    }
+  }
+
+  Future<void> _handleExit() async {
+    if (_isLeaving) return;
+
+    _autosaveTimer?.cancel();
+    if (!_hasUnsavedChanges) {
+      _isLeaving = true;
+      if (mounted) context.pop();
+      return;
+    }
+
+    final l10n = context.l10n(ref);
+    final decision = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.translate('save_changes')),
+        content: Text(l10n.translate('save_changes_desc')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, 'cancel'),
+            child: Text(l10n.translate('cancel')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, 'discard'),
+            child: Text(l10n.translate('discard')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, 'save'),
+            child: Text(l10n.translate('save')),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted || decision == null || decision == 'cancel') return;
+
+    if (decision == 'save') {
+      final saved = await _saveNote();
+      if (!saved || !mounted) return;
+    } else if (_isNewNote) {
+      await ref.read(notesProvider.notifier).deleteNotePermanently(_id);
+    }
+
+    _isLeaving = true;
+    if (mounted) context.pop();
   }
 
   void _toggleFavorite() {
     setState(() {
       _isFavorite = !_isFavorite;
     });
+    _scheduleAutosave();
   }
 
-  void _togglePinned() {
-    setState(() {
-      _isPinned = !_isPinned;
-    });
-  }
-
-  Color _getAccentColor() {
-    if (_note == null) return const Color(0xFFF5B839);
-
-    switch (_note!.type) {
+  Color _getAccentColor([NoteType? type]) {
+    final targetType = type ?? _selectedType;
+    switch (targetType) {
       case NoteType.note:
         return const Color(0xFFF5B839);
       case NoteType.checklist:
         return const Color(0xFF759B4A);
       case NoteType.voice:
         return const Color(0xFF4894B5);
-      case NoteType.image:
-        return const Color(0xFF8C7AD5);
     }
   }
 
-  String _getTypeName() {
-    if (_note == null) return 'Note';
-
-    switch (_note!.type) {
+  String _getTypeName(L10n l10n, [NoteType? type]) {
+    final targetType = type ?? _selectedType;
+    switch (targetType) {
       case NoteType.note:
-        return 'Note';
+        return l10n.translate('filter_notes');
       case NoteType.checklist:
-        return 'Checklist';
+        return l10n.translate('checklist');
       case NoteType.voice:
-        return 'Note vocale';
-      case NoteType.image:
-        return 'Image';
+        return l10n.translate('voice_note');
     }
   }
 
-  String _formatDate(DateTime date) {
-    final months = [
-      'janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin',
-      'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'
-    ];
+  String _formatDate(DateTime date, L10n l10n) {
+    final months = l10n.months;
 
     return '${date.day} ${months[date.month - 1]} ${date.year} à '
         '${date.hour.toString().padLeft(2, '0')}:'
         '${date.minute.toString().padLeft(2, '0')}';
   }
 
+  void _showTypeSelectionSheet() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textColor = colorScheme.onSurface;
+    final primaryColor = colorScheme.primary;
+    final l10n = context.l10n(ref);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 8,
+                  ),
+                  child: Text(
+                    'Change note type',
+                    style: GoogleFonts.nunito(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: textColor,
+                    ),
+                  ),
+                ),
+                Divider(color: colorScheme.onSurface.withAlpha(25)),
+                ...NoteType.values.map((type) {
+                  final isSelected = type == _selectedType;
+                  return ListTile(
+                    leading: Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: _getAccentColor(type),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    title: Text(
+                      _getTypeName(l10n, type),
+                      style: GoogleFonts.nunito(
+                        fontSize: 16,
+                        fontWeight: isSelected
+                            ? FontWeight.w800
+                            : FontWeight.w600,
+                        color: textColor,
+                      ),
+                    ),
+                    trailing: isSelected
+                        ? Icon(Icons.check, color: primaryColor)
+                        : null,
+                    onTap: () {
+                      setState(() {
+                        _selectedType = type;
+                      });
+                      _scheduleAutosave();
+                      Navigator.pop(context);
+                    },
+                  );
+                }),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_note == null) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    return Scaffold(
-      backgroundColor: backgroundColor,
-      appBar: AppBar(
-        backgroundColor: backgroundColor,
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-        leading: IconButton(
-          onPressed: _cancel,
-          icon: const Icon(Icons.arrow_back, color: textColor),
-        ),
-        titleSpacing: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Modifier la note',
-              style: GoogleFonts.nunito(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: textColor,
-              ),
-            ),
-            Text(
-              'Dernière modification',
-              style: GoogleFonts.nunito(
-                fontSize: 12,
-                color: secondaryTextColor,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            onPressed: _toggleFavorite,
-            icon: Icon(
-              _isFavorite ? Icons.star : Icons.star_border,
-              color: _isFavorite ? primaryColor : textColor,
-            ),
+    final colorScheme = Theme.of(context).colorScheme;
+    final textColor = colorScheme.onSurface;
+    final secondaryTextColor = colorScheme.onSurface.withAlpha(153);
+    final l10n = context.l10n(ref);
+
+    return PopScope<void>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) _handleExit();
+      },
+      child: Scaffold(
+        backgroundColor: colorScheme.surface,
+        appBar: AppBar(
+          backgroundColor: colorScheme.surface,
+          elevation: 0,
+          surfaceTintColor: Colors.transparent,
+          leading: IconButton(
+            onPressed: _handleExit,
+            icon: Icon(Icons.arrow_back, color: textColor),
           ),
-          IconButton(
-            onPressed: _togglePinned,
-            icon: Icon(
-              _isPinned ? Icons.push_pin : Icons.push_pin_outlined,
-              color: _isPinned ? primaryColor : textColor,
-            ),
-          ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, color: textColor),
-            onSelected: (value) {
-              if (value == 'delete') {
-                _showDeleteDialog();
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'delete',
-                child: Row(
-                  children: [
-                    Icon(Icons.delete_outline, color: Colors.red),
-                    SizedBox(width: 10),
-                    Text('Supprimer'),
-                  ],
+          titleSpacing: 0,
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l10n.translate('edit_note'),
+                style: GoogleFonts.nunito(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: textColor,
+                ),
+              ),
+              Text(
+                l10n.translate('last_modified'),
+                style: GoogleFonts.nunito(
+                  fontSize: 12,
+                  color: secondaryTextColor,
                 ),
               ),
             ],
           ),
-        ],
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(child: _buildEditor()),
-            _buildFormattingToolbar(),
-            _buildBottomActions(),
+          actions: [            
+            PopupMenuButton<String>(
+              icon: Icon(Icons.more_vert, color: textColor),
+              onSelected: (value) {
+                switch (value) {
+                  case 'summarize':
+                    _summarizeNote();
+                    break;
+                  case 'favorite':
+                    _toggleFavorite();
+                    break;
+                  case 'delete':
+                    _showDeleteDialog();
+                    break;
+                  case 'read':
+                    _readContent();
+                    break;
+
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'summarize',
+                  enabled: !_isSummarizing,
+                  child: Row(
+                    children: [
+                      _isSummarizing
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.auto_awesome),
+                      const SizedBox(width: 10),
+                      Text(l10n.translate('summarize_ia')),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'favorite',
+                  child: Row(
+                    children: [
+                      Icon(_isFavorite ? Icons.star : Icons.star_border),
+                      const SizedBox(width: 10),
+                      Text(
+                        _isFavorite
+                            ? l10n.translate('remove_favorite')
+                            : l10n.translate('favorites'),
+                      ),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'read',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.volume_up_outlined),
+                      const SizedBox(width: 10),
+                      Text(l10n.translate('read')),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.delete_outline, color: Colors.red),
+                      const SizedBox(width: 10),
+                      Text(l10n.translate('delete')),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Expanded(child: _buildEditor(context)),
+              if (_selectedType != NoteType.voice)
+                _buildFormattingToolbar(context),
+            ],
+          ),
+        ),
+        floatingActionButton: _selectedType == NoteType.voice 
+                            ? FloatingActionButton(
+                              onPressed: _toggleDictation,
+                              child: Icon(
+                                  _isListening ? Icons.mic : Icons.mic_none,
+                                  size: 30,
+                                  color: _isListening ? Colors.red : null,
+                                ),
+                            ) : null,
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       ),
     );
   }
 
-  Widget _buildEditor() {
+  Widget _buildEditor(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textColor = colorScheme.onSurface;
+    final secondaryTextColor = textColor.withAlpha(153);
+    final l10n = context.l10n(ref);
+
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-      ),
       child: Column(
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
             child: Row(
               children: [
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: _getAccentColor(),
-                    shape: BoxShape.circle,
+                InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: _showTypeSelectionSheet,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 2,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: _getAccentColor(),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          _getTypeName(l10n),
+                          style: GoogleFonts.nunito(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: textColor,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.keyboard_arrow_down,
+                          size: 18,
+                          color: secondaryTextColor,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  _getTypeName(),
-                  style: GoogleFonts.nunito(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: textColor,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                const Icon(
-                  Icons.keyboard_arrow_down,
-                  size: 18,
-                  color: secondaryTextColor,
                 ),
                 const Spacer(),
                 Text(
-                  _formatDate(_note!.lastModified),
+                  _formatDate(_note!.lastModified, l10n),
                   style: GoogleFonts.nunito(
                     fontSize: 11,
                     color: secondaryTextColor,
@@ -326,7 +669,12 @@ class _EditNotePageState extends ConsumerState<EditNotePage> {
               ],
             ),
           ),
-          const Divider(height: 1, indent: 20, endIndent: 20),
+          Divider(
+            height: 1,
+            indent: 20,
+            endIndent: 20,
+            color: colorScheme.onSurface.withAlpha(25),
+          ),
           TextField(
             controller: _titleController,
             style: GoogleFonts.nunito(
@@ -335,11 +683,11 @@ class _EditNotePageState extends ConsumerState<EditNotePage> {
               color: textColor,
             ),
             decoration: InputDecoration(
-              hintText: 'Titre',
+              hintText: l10n.translate('title_hint'),
               hintStyle: GoogleFonts.nunito(
                 fontSize: 25,
                 fontWeight: FontWeight.w800,
-                color: Colors.black26,
+                color: textColor.withAlpha(66),
               ),
               border: InputBorder.none,
               contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
@@ -352,7 +700,7 @@ class _EditNotePageState extends ConsumerState<EditNotePage> {
               focusNode: _editorFocusNode,
               config: quill.QuillEditorConfig(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-                placeholder: 'Commencez à écrire...',
+                placeholder: l10n.translate('content_placeholder'),
                 customStyles: quill.DefaultStyles(
                   paragraph: quill.DefaultTextBlockStyle(
                     GoogleFonts.nunito(
@@ -396,14 +744,16 @@ class _EditNotePageState extends ConsumerState<EditNotePage> {
     );
   }
 
-  Widget _buildFormattingToolbar() {
+  Widget _buildFormattingToolbar(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.black.withAlpha(40)),
+        border: Border.all(color: colorScheme.onSurface.withAlpha(40)),
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -425,46 +775,56 @@ class _EditNotePageState extends ConsumerState<EditNotePage> {
               icon: Icons.strikethrough_s,
               attribute: quill.Attribute.strikeThrough,
             ),
-            _divider(),
-            _formatButton(
-              icon: Icons.format_align_left,
-              attribute: quill.Attribute.leftAlignment,
-            ),
-            _formatButton(
-              icon: Icons.format_align_center,
-              attribute: quill.Attribute.centerAlignment,
-            ),
-            _formatButton(
-              icon: Icons.format_align_right,
-              attribute: quill.Attribute.rightAlignment,
-            ),
-            _divider(),
-            _formatButton(
-              icon: Icons.format_list_bulleted,
-              attribute: quill.Attribute.ul,
-            ),
-            _formatButton(
-              icon: Icons.format_list_numbered,
-              attribute: quill.Attribute.ol,
-            ),
-            _formatButton(
-              icon: Icons.check_box_outlined,
-              attribute: quill.Attribute.unchecked,
-            ),
-            _divider(),
-            _headingButton(1),
-            _headingButton(2),
-            _headingButton(3),
-            _divider(),
-            IconButton(
-              tooltip: 'Citation',
-              onPressed: _toggleQuote,
-              icon: const Icon(Icons.format_quote, size: 21),
-            ),
+            if (_selectedType == NoteType.note) ...[
+              _divider(context),
+              _formatButton(
+                icon: Icons.format_align_left,
+                attribute: quill.Attribute.leftAlignment,
+              ),
+              _formatButton(
+                icon: Icons.format_align_center,
+                attribute: quill.Attribute.centerAlignment,
+              ),
+              _formatButton(
+                icon: Icons.format_align_right,
+                attribute: quill.Attribute.rightAlignment,
+              ),
+              _divider(context),
+              _formatButton(
+                icon: Icons.format_list_bulleted,
+                attribute: quill.Attribute.ul,
+              ),
+              _formatButton(
+                icon: Icons.format_list_numbered,
+                attribute: quill.Attribute.ol,
+              ),
+              _divider(context),
+              _headingButton(1),
+              _headingButton(2),
+              _headingButton(3),
+              _divider(context),
+              IconButton(
+                tooltip: 'Citation',
+                onPressed: _toggleQuote,
+                icon: const Icon(Icons.format_quote, size: 21),
+              ),
+            ],
+            if (_selectedType == NoteType.checklist) ...[
+              _divider(context),
+              _formatButton(
+                icon: Icons.check_box_outlined,
+                attribute: quill.Attribute.unchecked,
+              ),
+            ],
           ],
         ),
       ),
     );
+  }
+
+  bool _isAlreadyFormatted(quill.Attribute attribute) {
+    final style = _quillController.getSelectionStyle();
+    return style.attributes[attribute.key] != null;
   }
 
   Widget _formatButton({
@@ -474,9 +834,17 @@ class _EditNotePageState extends ConsumerState<EditNotePage> {
     return IconButton(
       tooltip: attribute.key,
       onPressed: () {
+        if (_isAlreadyFormatted(attribute)){
+          _quillController.formatSelection(quill.Attribute.clone(attribute, null));
+          return;
+        }
         _quillController.formatSelection(attribute);
       },
-      icon: Icon(icon, size: 21),
+      icon: Icon(
+        icon,
+        size: 21,
+        color: Theme.of(context).colorScheme.onSurface,
+      ),
     );
   }
 
@@ -497,102 +865,66 @@ class _EditNotePageState extends ConsumerState<EditNotePage> {
         style: GoogleFonts.nunito(
           fontSize: 15,
           fontWeight: FontWeight.w700,
+          color: Theme.of(context).colorScheme.onSurface,
         ),
       ),
     );
   }
 
   void _toggleQuote() {
+    if (_isAlreadyFormatted(quill.Attribute.blockQuote)){
+      _quillController.formatSelection(quill.Attribute.clone(quill.Attribute.blockQuote, null));
+      return;
+    }
     _quillController.formatSelection(quill.Attribute.blockQuote);
   }
 
-  Widget _divider() {
+  Widget _divider(BuildContext context) {
     return Container(
       width: 1,
       height: 28,
       margin: const EdgeInsets.symmetric(horizontal: 5),
-      color: Colors.black12,
-    );
-  }
-
-  Widget _buildBottomActions() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: OutlinedButton(
-              onPressed: _cancel,
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 52),
-                side: BorderSide(color: primaryColor.withAlpha(125)),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              child: Text(
-                'Annuler',
-                style: GoogleFonts.nunito(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: primaryColor,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: ElevatedButton(
-              onPressed: _saveNote,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primaryColor,
-                foregroundColor: textColor,
-                elevation: 0,
-                minimumSize: const Size(double.infinity, 52),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              child: Text(
-                'Enregistrer',
-                style: GoogleFonts.nunito(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: textColor,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+      color: Theme.of(context).colorScheme.onSurface.withAlpha(25),
     );
   }
 
   void _showDeleteDialog() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textColor = colorScheme.onSurface;
+    final l10n = context.l10n(ref);
+
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Supprimer la note ?'),
-          content: const Text(
-            'Cette action déplacera la note vers la corbeille.',
+          backgroundColor: colorScheme.surface,
+          title: Text(
+            l10n.translate('delete_note_q'),
+            style: GoogleFonts.nunito(
+              color: textColor,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Text(
+            l10n.translate('delete_note_desc'),
+            style: GoogleFonts.nunito(color: textColor.withAlpha(179)),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Annuler'),
+              child: Text(l10n.translate('cancel')),
             ),
             TextButton(
               onPressed: () {
                 if (_note != null) {
                   ref.read(notesProvider.notifier).moveToTrash(_note!.id);
                 }
-                Navigator.pop(context); // Close the dialog
-                context.pop(); // Navigate back to the previous screen
+                Navigator.pop(context);
+                context.pop();
               },
-              child: const Text(
-                'Supprimer',
-                style: TextStyle(color: Colors.red),
+              child: Text(
+                l10n.translate('delete'),
+                style: const TextStyle(color: Colors.red),
               ),
             ),
           ],
@@ -601,11 +933,19 @@ class _EditNotePageState extends ConsumerState<EditNotePage> {
     );
   }
 
+  void _readContent(){
+
+  }
+
   @override
   void dispose() {
+    _autosaveTimer?.cancel();
+    _titleController.removeListener(_scheduleAutosave);
+    _quillController.removeListener(_scheduleAutosave);
     _titleController.dispose();
     _quillController.dispose();
     _editorFocusNode.dispose();
+    _speech.cancel();
     super.dispose();
   }
 }
